@@ -1,0 +1,279 @@
+@startuml
+abstract class AbstractProduct {
+  - name: string
+  - category: string
+  - quantity: int
+  - unitPrice: double
+  - expirationDate: QDate
+  + getName(): string
+  + getCategory(): string
+  + getQuantity(): int
+  + getUnitPrice(): double
+  + getExpirationDate(): QDate
+  + setName(name: string): void
+  + setCategory(category: string): void
+  + setQuantity(quantity: int): void
+  + setUnitPrice(unitPrice: double): void
+  + setExpirationDate(date: QDate): void
+  + {abstract} calculateTotalValue(): double
+  + {abstract} getProductType(): string
+  + isExpired(): bool
+  + isExpiringSoon(days: int): bool
+}
+
+class Product {
+  - id: int
+  - {static} nextId: int
+  + getId(): int
+  + {static} setNextId(maxId: int): void
+  + operator+(quantity: int): Product
+  + operator+=(quantity: int): Product&
+  + operator-(quantity: int): Product
+  + operator-=(quantity: int): Product&
+  + operator==(other: Product): bool
+  + operator!=(other: Product): bool
+  + operator<(other: Product): bool
+}
+
+class FoodProduct {
+  - storageTemperature: string
+  - requiresRefrigeration: bool
+  + getStorageTemperature(): string
+  + getRequiresRefrigeration(): bool
+  + setStorageTemperature(temp: string): void
+  + setRequiresRefrigeration(required: bool): void
+}
+
+class NonFoodProduct {
+  - warrantyPeriod: string
+  - isFragile: bool
+  + getWarrantyPeriod(): string
+  + getIsFragile(): bool
+  + setWarrantyPeriod(period: string): void
+  + setIsFragile(fragile: bool): void
+}
+
+template ProductRepository<T> {
+  - products: vector<shared_ptr<T>>
+  - productMap: map<int, shared_ptr<T>>
+  + add(product: shared_ptr<T>): void
+  + remove(id: int): void
+  + findById(id: int): shared_ptr<T>
+  + findAll(): vector<shared_ptr<T>>
+  + filter(Predicate): vector<shared_ptr<T>>
+  + sortByName(): void
+  + sortByPrice(): void
+  + sortByQuantity(): void
+  + sortByExpirationDate(): void
+  + sortByCategory(): void
+  + searchByName(name: string): vector<shared_ptr<T>>
+  + searchByCategory(category: string): vector<shared_ptr<T>>
+  + size(): size_t
+  + empty(): bool
+  + clear(): void
+  + calculateTotalInventoryValue(): double
+}
+
+class InventoryManager {
+  - repository: ProductRepository<Product>
+  - writeOffHistory: vector<shared_ptr<Product>>
+  + addProduct(product: shared_ptr<Product>): void
+  + updateProduct(id: int, product: shared_ptr<Product>): void
+  + deleteProduct(id: int): void
+  + getProduct(id: int): shared_ptr<Product>
+  + getAllProducts(): vector<shared_ptr<Product>>
+  + addStock(id: int, quantity: int): void
+  + removeStock(id: int, quantity: int): void
+  + searchProducts(name: string): vector<shared_ptr<Product>>
+  + filterByCategory(category: string): vector<shared_ptr<Product>>
+  + getExpiredProducts(): vector<shared_ptr<Product>>
+  + getExpiringSoon(days: int): vector<shared_ptr<Product>>
+  + calculateTotalInventoryValue(): double
+  + calculateTotalInventoryCost(): double
+  + getTotalProductCount(): int
+  + getTotalQuantity(): int
+  + writeOffProduct(id: int, quantity: int, reason: string): void
+  + getWriteOffHistory(): vector<shared_ptr<Product>>
+  + sortProductsByName(): void
+  + sortProductsByPrice(): void
+  + sortProductsByQuantity(): void
+  + sortProductsByExpirationDate(): void
+  + sortProductsByCategory(): void
+  + getRepository(): ProductRepository<Product>&
+}
+
+class ProductModel {
+  - products: vector<Product>
+  - inventoryManager: InventoryManager*
+  + rowCount(parent: QModelIndex): int
+  + columnCount(parent: QModelIndex): int
+  + data(index: QModelIndex, role: int): QVariant
+  + headerData(section: int, orientation: Qt::Orientation, role: int): QVariant
+  + setData(index: QModelIndex, value: QVariant, role: int): bool
+  + flags(index: QModelIndex): Qt::ItemFlags
+  + setProducts(products: vector<Product>): void
+  + addProduct(product: Product): void
+  + updateProduct(product: Product): void
+  + removeProduct(id: int): void
+  + getProduct(row: int): Product
+  + refresh(): void
+  + clear(): void
+}
+
+class MainWindow {
+  - tableView: QTableView*
+  - productModel: ProductModel*
+  - actionsDelegate: ActionsDelegate*
+  - searchLineEdit: QLineEdit*
+  - categoryComboBox: QComboBox*
+  - addButton: QPushButton*
+  - searchButton: QPushButton*
+  - inventoryManager: InventoryManager*
+  - dataFilePath: QString
+  + addProduct(): void
+  + editProduct(): void
+  + deleteProduct(): void
+  + writeOffProduct(): void
+  + generateReport(): void
+  + openInventory(): void
+  + searchProducts(): void
+  + filterByCategory(): void
+  + showExpiredProducts(): void
+  + showExpiringSoon(): void
+  + sortByName(): void
+  + sortByPrice(): void
+  + sortByQuantity(): void
+  + sortByExpirationDate(): void
+  + sortByCategory(): void
+  + refreshTable(): void
+  + onSelectionChanged(): void
+  + editProductByRow(row: int): void
+  + deleteProductByRow(row: int): void
+  + writeOffProductByRow(row: int): void
+  + reportProductByRow(row: int): void
+}
+
+class ProductDialog {
+  - idSpinBox: QSpinBox*
+  - nameEdit: QLineEdit*
+  - categoryComboBox: QComboBox*
+  - quantitySpinBox: QSpinBox*
+  - unitPriceSpinBox: QDoubleSpinBox*
+  - okButton: QPushButton*
+  - cancelButton: QPushButton*
+  - editMode: bool
+  - productId: int
+  + getProduct(): Product
+  + isEditMode(): bool
+}
+
+class WriteOffDialog {
+  - product: Product
+  - productNameLabel: QLabel*
+  - currentQuantityLabel: QLabel*
+  - totalValueLabel: QLabel*
+  - quantitySpinBox: QSpinBox*
+  - okButton: QPushButton*
+  - cancelButton: QPushButton*
+  + getWriteOffQuantity(): int
+  + getReason(): QString
+}
+
+class ReportDialog {
+  - inventoryManager: InventoryManager&
+  - reportTextEdit: QTextEdit*
+  - reportTypeComboBox: QComboBox*
+  - generateButton: QPushButton*
+  - exportButton: QPushButton*
+  - closeButton: QPushButton*
+  + generateReport(): void
+  + exportReport(): void
+}
+
+class InventoryDialog {
+  - inventoryManager: InventoryManager*
+  - tableView: QTableView*
+  - inventoryModel: QStandardItemModel*
+  - saveButton: QPushButton*
+  - cancelButton: QPushButton*
+  - inventoryItems: vector<InventoryItem>
+  + saveInventory(): void
+  + onCellChanged(row: int, column: int): void
+}
+
+class ActionsDelegate {
+  + paint(painter: QPainter*, option: QStyleOptionViewItem&, index: QModelIndex): void
+  + editorEvent(event: QEvent*, model: QAbstractItemModel*, option: QStyleOptionViewItem&, index: QModelIndex): bool
+  + sizeHint(option: QStyleOptionViewItem&, index: QModelIndex): QSize
+}
+
+class FileManager {
+  + {static} saveToBinary(inventory: InventoryManager&, filename: string): bool
+  + {static} loadFromBinary(inventory: InventoryManager&, filename: string): bool
+  + {static} exportReportToText(inventory: InventoryManager&, filename: string): bool
+  + {static} exportWriteOffHistoryToText(inventory: InventoryManager&, filename: string): bool
+}
+
+class WriteOffCalculator {
+  + {static} calculateWriteOffValue(product: Product&, quantity: int): double
+  + {static} calculateTotalWriteOffValue(products: vector<shared_ptr<Product>>): double
+  + {static} shouldWriteOffExpired(product: Product&): bool
+  + {static} shouldWriteOffDamaged(product: Product&, damagePercentage: double): bool
+  + {static} generateWriteOffReport(writeOffHistory: vector<shared_ptr<Product>>): vector<WriteOffRecord>
+  + {static} calculateMonthlyWriteOffValue(records: vector<WriteOffRecord>, month: int, year: int): double
+  + {static} calculateMonthlyWriteOffCount(records: vector<WriteOffRecord>, month: int, year: int): int
+}
+
+struct WriteOffRecord {
+  + productId: int
+  + productName: string
+  + quantity: int
+  + totalValue: double
+  + writeOffDate: QDate
+  + reason: string
+}
+
+class ProductException {
+  + message: string
+}
+
+class NegativeQuantityException {
+}
+
+class InvalidPriceException {
+}
+
+class InvalidDateException {
+}
+
+class ProductNotFoundException {
+}
+
+AbstractProduct <|-- Product
+AbstractProduct <|-- FoodProduct
+AbstractProduct <|-- NonFoodProduct
+ProductException <|-- NegativeQuantityException
+ProductException <|-- InvalidPriceException
+ProductException <|-- InvalidDateException
+ProductException <|-- ProductNotFoundException
+
+InventoryManager *-- ProductRepository
+ProductModel --> InventoryManager
+ProductModel --> Product
+MainWindow --> ProductModel
+MainWindow --> InventoryManager
+MainWindow --> ActionsDelegate
+MainWindow --> InventoryDialog
+ProductDialog ..> Product : friend
+FileManager ..> Product : friend
+FileManager --> InventoryManager
+WriteOffDialog --> Product
+ReportDialog --> InventoryManager
+InventoryDialog --> InventoryManager
+InventoryDialog --> ProductModel
+WriteOffCalculator --> Product
+WriteOffCalculator --> WriteOffRecord
+InventoryManager --> Product
+
+@enduml
+
