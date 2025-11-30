@@ -1,4 +1,4 @@
-QT += core widgets
+QT += core widgets charts
 
 CONFIG += c++17
 TARGET = ProductCalculationSystem
@@ -8,12 +8,14 @@ SOURCES += \
     src/main.cpp \
     src/Product.cpp \
     src/AbstractProduct.cpp \
-    src/FoodProduct.cpp \
-    src/NonFoodProduct.cpp \
     src/InventoryManager.cpp \
     src/WriteOffCalculator.cpp \
     src/FileManager.cpp \
     src/DatabaseManager.cpp \
+    src/Order.cpp \
+    src/OrderDialog.cpp \
+    src/AddProductToOrderDialog.cpp \
+    src/SalesReportDialog.cpp \
     src/ProductModel.cpp \
     src/MainWindow.cpp \
     src/ProductDialog.cpp \
@@ -25,14 +27,18 @@ SOURCES += \
 HEADERS += \
     include/Product.h \
     include/AbstractProduct.h \
-    include/FoodProduct.h \
-    include/NonFoodProduct.h \
     include/InventoryManager.h \
     include/WriteOffCalculator.h \
     include/ProductRepository.h \
     include/Exceptions.h \
     include/FileManager.h \
     include/DatabaseManager.h \
+    include/Order.h \
+    include/OrderItem.h \
+    include/OrderDialog.h \
+    include/AddProductToOrderDialog.h \
+    include/DiscountCalculator.h \
+    include/SalesReportDialog.h \
     include/ProductModel.h \
     include/MainWindow.h \
     include/ProductDialog.h \

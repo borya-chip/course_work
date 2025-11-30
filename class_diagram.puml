@@ -1,0 +1,576 @@
+@startuml ClassDiagram
+
+' Базовые классы продуктов
+abstract class AbstractProduct {
+    # name : string
+    # category : string
+    # quantity : int
+    # unitPrice : double
+    # expirationDate : QDate
+    + getName() : string
+    + getCategory() : string
+    + getQuantity() : int
+    + getUnitPrice() : double
+    + getExpirationDate() : QDate
+    + setName(name : string)
+    + setCategory(category : string)
+    + setQuantity(quantity : int)
+    + setUnitPrice(unitPrice : double)
+    + setExpirationDate(date : QDate)
+    + {abstract} calculateTotalValue() : double
+    + {abstract} getProductType() : string
+    + isExpired() : bool
+    + isExpiringSoon(days : int) : bool
+}
+
+class Product {
+    - id : int
+    - {static} nextId : int
+    + Product(name, category, quantity, unitPrice, expirationDate)
+    + getId() : int
+    + calculateTotalValue() : double
+    + getProductType() : string
+    + setNextId(maxId : int)
+    + operator+(quantity : int) : Product
+    + operator+=(quantity : int) : Product&
+    + operator-(quantity : int) : Product
+    + operator-=(quantity : int) : Product&
+    + operator==(other : Product) : bool
+    + operator!=(other : Product) : bool
+    + operator<(other : Product) : bool
+}
+
+class FoodProduct {
+    - storageTemperature : string
+    - requiresRefrigeration : bool
+    + FoodProduct(...)
+    + calculateTotalValue() : double
+    + getProductType() : string
+    + getStorageTemperature() : string
+    + getRequiresRefrigeration() : bool
+    + setStorageTemperature(temp : string)
+    + setRequiresRefrigeration(required : bool)
+}
+
+class NonFoodProduct {
+    - warrantyPeriod : string
+    - isFragile : bool
+    + NonFoodProduct(...)
+    + calculateTotalValue() : double
+    + getProductType() : string
+    + getWarrantyPeriod() : string
+    + getIsFragile() : bool
+    + setWarrantyPeriod(period : string)
+    + setIsFragile(fragile : bool)
+}
+
+' Наследование продуктов
+AbstractProduct <|-- Product
+AbstractProduct <|-- FoodProduct
+AbstractProduct <|-- NonFoodProduct
+
+' Классы заказов
+enum OrderType {
+    RETAIL
+    WHOLESALE
+}
+
+class Order {
+    - id : int
+    - companyName : QString
+    - contactPerson : QString
+    - phone : QString
+    - orderType : OrderType
+    - orderDate : QDate
+    - items : vector<OrderItem>
+    - totalAmount : double
+    - totalDiscount : double
+    - {static} nextId : int
+    + Order()
+    + Order(company, contact, phoneNum, type)
+    + getId() : int
+    + getCompanyName() : QString
+    + getContactPerson() : QString
+    + getPhone() : QString
+    + getOrderType() : OrderType
+    + getOrderDate() : QDate
+    + getItems() : vector<OrderItem>
+    + getTotalAmount() : double
+    + getTotalDiscount() : double
+    + setCompanyName(name : QString)
+    + setContactPerson(contact : QString)
+    + setPhone(phoneNum : QString)
+    + setOrderType(type : OrderType)
+    + setOrderDate(date : QDate)
+    + setId(newId : int)
+    + addItem(item : OrderItem)
+    + removeItem(productId : int)
+    + updateItemQuantity(productId : int, quantity : int)
+    + clearItems()
+    + calculateTotal()
+    + getOrderTypeString() : QString
+    + setNextId(maxId : int)
+}
+
+class OrderItem {
+    + productId : int
+    + productName : QString
+    + category : QString
+    + quantity : int
+    + unitPrice : double
+    + discountPercent : double
+    + totalPrice : double
+    + OrderItem()
+    + OrderItem(id, name, cat, qty, price)
+    + calculateTotal(discount : double)
+}
+
+Order "1" *-- "many" OrderItem : contains
+
+' Репозиторий и менеджер инвентаря
+class ProductRepository<T> {
+    - products : vector<shared_ptr<T>>
+    - productMap : map<int, shared_ptr<T>>
+    + add(product : shared_ptr<T>)
+    + remove(id : int)
+    + findById(id : int) : shared_ptr<T>
+    + findAll() : vector<shared_ptr<T>>
+    + filter(pred : Predicate) : vector<shared_ptr<T>>
+    + sortByName()
+    + sortByPrice()
+    + sortByQuantity()
+    + sortByExpirationDate()
+    + sortByCategory()
+    + searchByName(name : string) : vector<shared_ptr<T>>
+    + searchByCategory(category : string) : vector<shared_ptr<T>>
+    + size() : size_t
+    + empty() : bool
+    + clear()
+    + calculateTotalInventoryValue() : double
+}
+
+class InventoryManager {
+    - repository : ProductRepository<Product>
+    - writeOffHistory : vector<shared_ptr<Product>>
+    + InventoryManager()
+    + addProduct(product : shared_ptr<Product>)
+    + updateProduct(id : int, product : shared_ptr<Product>)
+    + deleteProduct(id : int)
+    + getProduct(id : int) : shared_ptr<Product>
+    + getAllProducts() : vector<shared_ptr<Product>>
+    + addStock(id : int, quantity : int)
+    + removeStock(id : int, quantity : int)
+    + searchProducts(name : string) : vector<shared_ptr<Product>>
+    + filterByCategory(category : string) : vector<shared_ptr<Product>>
+    + getExpiredProducts() : vector<shared_ptr<Product>>
+    + getExpiringSoon(days : int) : vector<shared_ptr<Product>>
+    + calculateTotalInventoryValue() : double
+    + calculateTotalInventoryCost() : double
+    + getTotalProductCount() : int
+    + getTotalQuantity() : int
+    + writeOffProduct(id : int, quantity : int, reason : string)
+    + getWriteOffHistory() : vector<shared_ptr<Product>>
+    + sortProductsByName()
+    + sortProductsByPrice()
+    + sortProductsByQuantity()
+    + sortProductsByExpirationDate()
+    + sortProductsByCategory()
+    + getRepository() : ProductRepository<Product>&
+}
+
+InventoryManager "1" *-- "1" ProductRepository<Product> : uses
+
+' Утилиты и менеджеры данных
+class DatabaseManager {
+    - {static} instance : DatabaseManager*
+    - dataFilePath : QString
+    - writeOffFilePath : QString
+    - ordersFilePath : QString
+    + {static} getInstance() : DatabaseManager*
+    + {static} destroyInstance()
+    + initializeDatabase() : bool
+    + connect() : bool
+    + disconnect()
+    + isConnected() : bool
+    + addProduct(product : Product) : bool
+    + updateProduct(product : Product) : bool
+    + deleteProduct(id : int) : bool
+    + getProduct(id : int) : Product
+    + getAllProducts() : vector<Product>
+    + searchProductsByName(name : QString) : vector<Product>
+    + searchProductsByCategory(category : QString) : vector<Product>
+    + getExpiredProducts() : vector<Product>
+    + getExpiringSoon(days : int) : vector<Product>
+    + addWriteOffRecord(...) : bool
+    + getWriteOffHistory() : vector<QStringList>
+    + addOrder(order : Order) : bool
+    + updateOrder(order : Order) : bool
+    + deleteOrder(id : int) : bool
+    + getOrder(id : int) : Order
+    + getAllOrders() : vector<Order>
+    + getOrdersByCompany(companyName : QString) : vector<Order>
+    + getOrdersByType(type : OrderType) : vector<Order>
+    + getOrdersByDateRange(startDate : QDate, endDate : QDate) : vector<Order>
+    - loadProducts(products : vector<Product>&) : bool
+    - saveProducts(products : vector<Product>) : bool
+    - loadWriteOffRecords(records : vector<WriteOffRecord>&) : bool
+    - saveWriteOffRecords(records : vector<WriteOffRecord>) : bool
+    - writeProductToFile(...)
+    - readProductFromFile(...) : bool
+    - writeWriteOffRecordToFile(...)
+    - readWriteOffRecordFromFile(...) : bool
+    - loadOrders(orders : vector<Order>&) : bool
+    - saveOrders(orders : vector<Order>) : bool
+    - writeOrderToFile(...)
+    - readOrderFromFile(...) : bool
+}
+
+class WriteOffRecord {
+    + id : int
+    + productId : int
+    + productName : string
+    + quantity : int
+    + value : double
+    + reason : QString
+    + writeOffDate : QDate
+}
+
+DatabaseManager ..> WriteOffRecord : uses
+
+class FileManager {
+    + {static} saveToBinary(inventory : InventoryManager&, filename : string) : bool
+    + {static} loadFromBinary(inventory : InventoryManager&, filename : string) : bool
+    + {static} exportReportToText(inventory : InventoryManager&, filename : string) : bool
+    + {static} exportWriteOffHistoryToText(inventory : InventoryManager&, filename : string) : bool
+}
+
+class DiscountCalculator {
+    + {static} calculateWholesaleDiscount(quantity : int) : double
+    + {static} calculateRetailDiscount(quantity : int) : double
+    + {static} calculateDiscount(isWholesale : bool, quantity : int) : double
+}
+
+class WriteOffCalculator {
+    + {static} calculateWriteOffValue(product : Product&, quantity : int) : double
+    + {static} calculateTotalWriteOffValue(products : vector<shared_ptr<Product>>) : double
+    + {static} shouldWriteOffExpired(product : Product&) : bool
+    + {static} shouldWriteOffDamaged(product : Product&, damagePercentage : double) : bool
+    + {static} generateWriteOffReport(writeOffHistory : vector<shared_ptr<Product>>) : vector<WriteOffRecord>
+    + {static} calculateMonthlyWriteOffValue(records : vector<WriteOffRecord>, month : int, year : int) : double
+    + {static} calculateMonthlyWriteOffCount(records : vector<WriteOffRecord>, month : int, year : int) : int
+}
+
+' Исключения
+class ProductException {
+    + ProductException(message : string)
+}
+
+class NegativeQuantityException {
+    + NegativeQuantityException(message : string)
+}
+
+class InvalidPriceException {
+    + InvalidPriceException(message : string)
+}
+
+class InvalidDateException {
+    + InvalidDateException(message : string)
+}
+
+class ProductNotFoundException {
+    + ProductNotFoundException(message : string)
+}
+
+ProductException <|-- NegativeQuantityException
+ProductException <|-- InvalidPriceException
+ProductException <|-- InvalidDateException
+ProductException <|-- ProductNotFoundException
+
+' UI классы
+class MainWindow {
+    - sidebarMenu : QTreeWidget*
+    - contentWidget : QWidget*
+    - tableView : QTableView*
+    - productModel : ProductModel*
+    - actionsDelegate : ActionsDelegate*
+    - searchLineEdit : QLineEdit*
+    - categoryComboBox : QComboBox*
+    - addButton : QPushButton*
+    - inventoryManager : InventoryManager*
+    - dbManager : DatabaseManager*
+    - dataFilePath : QString
+    + MainWindow(parent : QWidget*)
+    + ~MainWindow()
+    - setupUI()
+    - setupTable()
+    - setupSearchBar()
+    - setupButtons()
+    - connectSignals()
+    - setupSidebar()
+    - setupContentArea()
+    - createWarehouseSection() : QWidget*
+    - createOrdersSection() : QWidget*
+    - createInventorySection() : QWidget*
+    - createReportsSection() : QWidget*
+    - calculateTotalSales() : double
+    - getCategorySalesData() : QMap<QString, double>
+    - getTopCompaniesData(topCount : int) : QList<QPair<QString, double>>
+    - getPrimaryButtonStyle() : QString
+    - getSecondaryButtonStyle() : QString
+    - getDangerButtonStyle() : QString
+    - getSuccessButtonStyle() : QString
+    - onSidebarItemClicked(item : QTreeWidgetItem*, column : int)
+    + addProduct()
+    + generateReport()
+    + openInventory()
+    + createOrder()
+    + editOrder(orderId : int)
+    + showSalesReport()
+    + saveOrderHistoryToTxt(order : Order&)
+    + exportReport()
+    + searchProducts()
+    + filterByCategory()
+    + refreshTable()
+    + onSelectionChanged()
+    + editProductByRow(row : int)
+    + deleteProductByRow(row : int)
+    + writeOffProductByRow(row : int)
+}
+
+class ProductDialog {
+    - idSpinBox : QSpinBox*
+    - nameEdit : QLineEdit*
+    - categoryComboBox : QComboBox*
+    - quantitySpinBox : QSpinBox*
+    - unitPriceSpinBox : QDoubleSpinBox*
+    - okButton : QPushButton*
+    - cancelButton : QPushButton*
+    - editMode : bool
+    - productId : int
+    + ProductDialog(parent : QWidget*)
+    + ProductDialog(product : Product&, parent : QWidget*)
+    + getProduct() : Product
+    + isEditMode() : bool
+    - setupUI()
+    - populateFields(product : Product&)
+    - validateInput()
+    + accept()
+}
+
+class OrderDialog {
+    - companyNameEdit : QLineEdit*
+    - contactPersonEdit : QLineEdit*
+    - phoneEdit : QLineEdit*
+    - retailRadioButton : QRadioButton*
+    - wholesaleRadioButton : QRadioButton*
+    - orderTypeGroup : QButtonGroup*
+    - addProductButton : QPushButton*
+    - cartTable : QTableWidget*
+    - subtotalLabel : QLabel*
+    - discountAmountLabel : QLabel*
+    - finalTotalLabel : QLabel*
+    - createOrderButton : QPushButton*
+    - cancelButton : QPushButton*
+    - currentOrder : Order
+    - availableProducts : vector<Product>
+    + OrderDialog(availableProducts : vector<Product>, parent : QWidget*)
+    + getOrder() : Order
+    + setOrder(order : Order&)
+    - setupUI()
+    - addItemToCart(product : Product&, quantity : int)
+    - refreshCartTable()
+    - createCompanyGroupBox() : QGroupBox*
+    - createOrderTypeGroupBox() : QGroupBox*
+    - createCartGroupBox() : QGroupBox*
+    - createTotalsGroupBox() : QGroupBox*
+    + onOrderTypeChanged()
+    + onAddProductClicked()
+    + onRemoveProductClicked()
+    + onQuantityChanged(row : int, quantity : int)
+    + updateTotals()
+    + validateAndAccept()
+}
+
+class AddProductToOrderDialog {
+    - productComboBox : QComboBox*
+    - quantitySpinBox : QSpinBox*
+    - pricePreviewLabel : QLabel*
+    - discountLabel : QLabel*
+    - totalPriceLabel : QLabel*
+    - addButton : QPushButton*
+    - cancelButton : QPushButton*
+    - availableProducts : vector<Product>
+    - isWholesale : bool
+    - selectedProduct : Product
+    + AddProductToOrderDialog(availableProducts : vector<Product>, isWholesale : bool, parent : QWidget*)
+    + getSelectedProduct() : Product
+    + getQuantity() : int
+    - setupUI()
+    + onProductChanged(index : int)
+    + updatePricePreview()
+}
+
+class ProductModel {
+    - products : vector<Product>
+    - inventoryManager : InventoryManager*
+    + ProductModel(inventoryManager : InventoryManager*, parent : QObject*)
+    + ~ProductModel()
+    + rowCount(parent : QModelIndex) : int
+    + columnCount(parent : QModelIndex) : int
+    + data(index : QModelIndex, role : int) : QVariant
+    + headerData(section : int, orientation : Qt::Orientation, role : int) : QVariant
+    + setData(index : QModelIndex, value : QVariant, role : int) : bool
+    + flags(index : QModelIndex) : Qt::ItemFlags
+    + setProducts(products : vector<Product>)
+    + getProduct(row : int) : Product
+    + refresh()
+}
+
+class InventoryDialog {
+    - inventoryManager : InventoryManager*
+    - tableView : QTableView*
+    - inventoryModel : QStandardItemModel*
+    - saveButton : QPushButton*
+    - cancelButton : QPushButton*
+    - inventoryItems : vector<InventoryItem>
+    + InventoryDialog(inventoryManager : InventoryManager*, parent : QWidget*)
+    + ~InventoryDialog()
+    - setupUI()
+    - setupTable()
+    - updateDifferences()
+    + saveInventory()
+    + onCellChanged(row : int, column : int)
+}
+
+class InventoryItem {
+    + id : int
+    + name : QString
+    + category : QString
+    + currentQuantity : int
+    + actualQuantity : int
+    + unitPrice : double
+}
+
+class WriteOffDialog {
+    - product : Product
+    - productNameLabel : QLabel*
+    - currentQuantityLabel : QLabel*
+    - totalValueLabel : QLabel*
+    - quantitySpinBox : QSpinBox*
+    - okButton : QPushButton*
+    - cancelButton : QPushButton*
+    + WriteOffDialog(product : Product&, parent : QWidget*)
+    + getWriteOffQuantity() : int
+    + getReason() : QString
+    - setupUI()
+    - validateInput()
+    + accept()
+}
+
+class ReportDialog {
+    - inventoryManager : InventoryManager&
+    - reportTextEdit : QTextEdit*
+    - reportTypeComboBox : QComboBox*
+    - generateButton : QPushButton*
+    - exportButton : QPushButton*
+    - closeButton : QPushButton*
+    + ReportDialog(inventory : InventoryManager&, parent : QWidget*)
+    - setupUI()
+    - generateInventoryReport()
+    - generateWriteOffReport()
+    + generateReport()
+    + exportReport()
+}
+
+class SalesReportDialog {
+    - reportTypeComboBox : QComboBox*
+    - startDateEdit : QDateEdit*
+    - endDateEdit : QDateEdit*
+    - exportButton : QPushButton*
+    - reportTable : QTableWidget*
+    - totalRetailLabel : QLabel*
+    - totalWholesaleLabel : QLabel*
+    - totalAmountLabel : QLabel*
+    - totalDiscountLabel : QLabel*
+    - ordersCountLabel : QLabel*
+    - currentOrders : vector<Order>
+    - dbManager : DatabaseManager*
+    + SalesReportDialog(parent : QWidget*)
+    - setupUI()
+    - setupFilters()
+    - setupReportTable()
+    - setupStatistics()
+    - refreshReport()
+    - calculateStatistics()
+    - createFiltersGroupBox() : QGroupBox*
+    - createReportTableGroupBox() : QGroupBox*
+    - createStatisticsGroupBox() : QGroupBox*
+    + generateReport()
+    + onReportTypeChanged(index : int)
+    + exportReport()
+}
+
+class ActionsDelegate {
+    + ActionsDelegate(parent : QObject*)
+    + paint(painter : QPainter*, option : QStyleOptionViewItem&, index : QModelIndex) : void
+    + editorEvent(event : QEvent*, model : QAbstractItemModel*, option : QStyleOptionViewItem&, index : QModelIndex) : bool
+    + sizeHint(option : QStyleOptionViewItem&, index : QModelIndex) : QSize
+    - getButtonRect(option : QStyleOptionViewItem&) : QRect
+    + editRequested(row : int)
+    + deleteRequested(row : int)
+    + writeOffRequested(row : int)
+}
+
+' Отношения между классами
+MainWindow "1" *-- "1" InventoryManager : uses
+MainWindow "1" *-- "1" DatabaseManager : uses
+MainWindow "1" *-- "1" ProductModel : uses
+MainWindow ..> ProductDialog : creates
+MainWindow ..> OrderDialog : creates
+MainWindow ..> InventoryDialog : creates
+MainWindow ..> SalesReportDialog : creates
+MainWindow ..> ReportDialog : creates
+MainWindow ..> WriteOffDialog : creates
+MainWindow "1" *-- "1" ActionsDelegate : uses
+
+InventoryDialog "1" *-- "1" InventoryManager : uses
+InventoryDialog "1" *-- "many" InventoryItem : uses
+WriteOffDialog "1" *-- "1" Product : uses
+ReportDialog "1" *-- "1" InventoryManager : uses
+SalesReportDialog "1" *-- "1" DatabaseManager : uses
+SalesReportDialog "1" *-- "many" Order : displays
+
+OrderDialog "1" *-- "1" Order : contains
+OrderDialog ..> AddProductToOrderDialog : creates
+OrderDialog ..> DiscountCalculator : uses
+
+AddProductToOrderDialog "1" *-- "many" Product : uses
+AddProductToOrderDialog ..> DiscountCalculator : uses
+
+ProductDialog "1" *-- "1" Product : creates
+
+ProductModel "1" *-- "1" InventoryManager : uses
+ProductModel "1" *-- "many" Product : displays
+
+InventoryDialog "1" *-- "1" InventoryManager : uses
+WriteOffDialog "1" *-- "1" Product : uses
+ReportDialog "1" *-- "1" InventoryManager : uses
+SalesReportDialog "1" *-- "1" DatabaseManager : uses
+SalesReportDialog "1" *-- "many" Order : displays
+
+DatabaseManager "1" *-- "many" Product : manages
+DatabaseManager "1" *-- "many" Order : manages
+DatabaseManager ..> WriteOffRecord : uses
+
+FileManager ..> InventoryManager : works with
+
+InventoryManager "1" *-- "many" Product : manages
+InventoryManager ..> WriteOffCalculator : uses
+
+WriteOffCalculator ..> Product : uses
+WriteOffCalculator ..> WriteOffRecord : creates
+
+Product "1" *-- "1" AbstractProduct : extends
+
+@enduml
+
