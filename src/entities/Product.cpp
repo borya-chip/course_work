@@ -5,16 +5,16 @@
 #include <sstream>
 #include <iomanip>
 
-int Product::nextId = 1;
+int Product::nextId = 1; // больше не используем для генерации ID, оставлено для совместимости
 
 void Product::setNextId(int id) {
-    nextId = id + 1;
+    nextId = id + 1; // оставлено для совместимости со старым кодом
 }
 
 Product::Product(const std::string& name, const std::string& category,
                 int quantity, double unitPrice)
     : AbstractProduct(name, category, quantity, unitPrice),
-      id(nextId++) {
+      id(0) { // ID теперь задаётся явно (ProductDialog/DatabaseManager)
 }
 
 Product::Product(const Product& other)

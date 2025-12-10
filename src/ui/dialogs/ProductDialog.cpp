@@ -27,12 +27,10 @@ void ProductDialog::setupUI() {
     idSpinBox->setMaximum(999999);
     if (editMode) {
         idSpinBox->setValue(productId);
-        idSpinBox->setReadOnly(true);
-        formLayout->addRow("ID:", idSpinBox);
-    } else {
-        // Hide ID field for new products (auto-generated)
-        idSpinBox->setVisible(false);
+        idSpinBox->setReadOnly(true); // при редактировании ID менять нельзя
+        idSpinBox->setButtonSymbols(QAbstractSpinBox::NoButtons); // скрываем стрелки
     }
+    formLayout->addRow("ID:", idSpinBox);
     
     nameEdit = new QLineEdit(this);
     formLayout->addRow("Name:", nameEdit);
@@ -84,11 +82,9 @@ Product ProductDialog::getProduct() const {
         
         Product product(name, category, quantity, unitPrice);
         
-        // Only set ID if in edit mode, otherwise use auto-generated ID
-        if (editMode) {
-            int id = idSpinBox->value();
-            product.setId(id);
-        }
+        // ID теперь всегда задаётся пользователем через idSpinBox
+        int id = idSpinBox->value();
+        product.setId(id);
         
         return product;
     } catch (const ProductException& e) {
@@ -97,8 +93,8 @@ Product ProductDialog::getProduct() const {
 }
 
 void ProductDialog::validateInput() {
-    // Only validate ID if in edit mode
-    if (editMode && idSpinBox->value() <= 0) {
+    // Всегда проверяем ID
+    if (idSpinBox->value() <= 0) {
         QMessageBox::warning(this, "Validation Error", "ID must be greater than 0.");
         return;
     }

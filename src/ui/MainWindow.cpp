@@ -432,23 +432,12 @@ void MainWindow::addProduct() {
         try {
             Product product = dialog.getProduct();
             
-            // For new products, ID is auto-generated, so check if it already exists
-            // This can happen if nextId is not properly synchronized
+            // Проверяем, что введённый ID уникален в текущем инвентаре
             auto existingProduct = inventoryManager->getProduct(product.getId());
             if (existingProduct) {
-                // If ID conflict, regenerate ID
-                int maxId = 0;
-                auto allProducts = inventoryManager->getAllProducts();
-                for (const auto& p : allProducts) {
-                    if (p && p->getId() > maxId) {
-                        maxId = p->getId();
-                    }
-                }
-                Product::setNextId(maxId);
-                // Create new product with regenerated ID
-                Product newProduct(product.getName(), product.getCategory(), 
-                                 product.getQuantity(), product.getUnitPrice());
-                product = newProduct;
+                QMessageBox::warning(this, "Error",
+                    QString("Product with ID %1 already exists.").arg(product.getId()));
+                return;
             }
             
             // Create shared_ptr and add to inventory
@@ -1166,12 +1155,14 @@ QWidget* MainWindow::createInventorySection() {
                     if (difference > 0) {
                         // Add stock
                         inventoryManager->addStock(id, difference);
-                        itemsAdded++;
+                        // считаем добавленные единицы товара
+                        itemsAdded += difference;
                     } else {
                         // Write off stock
                         int writeOffQty = -difference;
                         inventoryManager->writeOffProduct(id, writeOffQty, "Inventory adjustment");
-                        itemsWrittenOff++;
+                        // считаем реально списанное количество
+                        itemsWrittenOff += writeOffQty;
                     }
                     itemsUpdated++;
                 }
