@@ -3,6 +3,11 @@
 #include "ui/dialogs/WriteOffDialog.h"
 #include "ui/dialogs/ReportDialog.h"
 #include "services/InventoryService.h"
+#include "services/ProductFilterService.h"
+#include "services/ProductValidator.h"
+#include "services/WriteOffService.h"
+#include "services/InventoryAdjustmentService.h"
+#include "services/OrderService.h"
 #include "managers/FileManager.h"
 #include "exceptions/Exceptions.h"
 #include "ui/delegates/ActionsDelegate.h"
@@ -434,11 +439,10 @@ void MainWindow::addProduct() {
         try {
             Product product = dialog.getProduct();
             
-            // Проверяем, что введённый ID уникален в текущем инвентаре
-            auto existingProduct = inventoryManager->getProduct(product.getId());
-            if (existingProduct) {
-                QMessageBox::warning(this, "Error",
-                    QString("Product with ID %1 already exists.").arg(product.getId()));
+            // Проверяем ID через ProductValidator (диапазон + уникальность)
+            QString idError = ProductValidator::validateId(*inventoryManager, product.getId());
+            if (!idError.isEmpty()) {
+                QMessageBox::warning(this, "Error", idError);
                 return;
             }
             
@@ -500,37 +504,34 @@ void MainWindow::createOrder() {
     OrderDialog dialog(products, this);
     if (dialog.exec() == QDialog::Accepted) {
         Order order = dialog.getOrder();
-        
-        // Save order to database
-        if (dbManager->addOrder(order)) {
-            // Update product quantities in stock (InventoryService)
-            for (const auto& item : order.getItems()) {
-                auto productPtr = inventoryManager->getProduct(item.productId);
-                if (productPtr) {
-                    int newQuantity = productPtr->getQuantity() - item.quantity;
-                    if (newQuantity < 0) newQuantity = 0;
-                    productPtr->setQuantity(newQuantity);
-                }
-            }
-            
-            // Save updated inventory
-            FileManager::saveToBinary(*inventoryManager, dataFilePath.toStdString());
-            
-            // Refresh product model
-            if (productModel) {
-                productModel->refresh();
-            }
-            
-            // Save order history to txt file
-            saveOrderHistoryToTxt(order);
-            
-            QMessageBox::information(this, "Success", 
-                QString("Order #%1 created successfully!\nAmount: $%2")
-                .arg(order.getId())
-                .arg(order.getTotalAmount(), 0, 'f', 2));
-        } else {
+
+        // Создаём заказ через сервис бизнес-логики
+        OrderService::Result result = OrderService::createOrder(
+            *inventoryManager,
+            *dbManager,
+            order
+        );
+
+        if (!result.saved) {
             QMessageBox::warning(this, "Error", "Failed to save order!");
+            return;
         }
+
+        // Save updated inventory
+        FileManager::saveToBinary(*inventoryManager, dataFilePath.toStdString());
+        
+        // Refresh product model
+        if (productModel) {
+            productModel->refresh();
+        }
+        
+        // Save order history to txt file
+        saveOrderHistoryToTxt(order);
+        
+        QMessageBox::information(this, "Success", 
+            QString("Order #%1 created successfully!\nAmount: $%2")
+            .arg(order.getId())
+            .arg(result.totalAmount, 0, 'f', 2));
     }
 }
 
@@ -654,30 +655,8 @@ void MainWindow::applyFilters() {
     QString category = categoryComboBox->currentText();
     QString searchText = searchLineEdit->text().trimmed();
     
-    std::vector<std::shared_ptr<Product>> products;
-    
-    // Get products based on category filter
-    if (category == "All Categories" || category.isEmpty()) {
-        products = inventoryManager->getAllProducts();
-    } else {
-        products = inventoryManager->filterByCategory(category.toStdString());
-    }
-    
-    // Apply search filter if search text is not empty
-    if (!searchText.isEmpty()) {
-        std::string searchLower = searchText.toLower().toStdString();
-        std::vector<std::shared_ptr<Product>> filteredProducts;
-        for (const auto& p : products) {
-            if (p) {
-                std::string productName = p->getName();
-                std::transform(productName.begin(), productName.end(), productName.begin(), ::tolower);
-                if (productName.find(searchLower) != std::string::npos) {
-                    filteredProducts.push_back(p);
-                }
-            }
-        }
-        products = filteredProducts;
-    }
+    // Получаем отфильтрованный список через сервис
+    auto products = ProductFilterService::filterProducts(*inventoryManager, category, searchText);
     
     // Convert to Product list and update model
     std::vector<Product> productList;
@@ -781,9 +760,17 @@ void MainWindow::writeOffProductByRow(int row) {
                 productName = "Unknown Product";
             }
             
-            // Write off product from inventory
+            // Выполняем списание через сервис бизнес-логики
             try {
-                inventoryManager->writeOffProduct(product.getId(), quantity, reason.toStdString());
+                auto result = WriteOffService::writeOffProduct(
+                    *inventoryManager,
+                    dbManager,
+                    product.getId(),
+                    quantity,
+                    reason,
+                    productName
+                );
+                Q_UNUSED(result);
             } catch (const ProductException& e) {
                 QMessageBox::critical(this, "Error", QString::fromStdString(e.what()));
                 return;
@@ -793,22 +780,6 @@ void MainWindow::writeOffProductByRow(int row) {
             } catch (...) {
                 QMessageBox::critical(this, "Error", "Failed to write off product: unknown error");
                 return;
-            }
-            
-            // Save write-off record to database (non-critical, continue even if it fails)
-            try {
-                if (dbManager) {
-                    if (!dbManager->addWriteOffRecord(product.getId(), quantity, writeOffValue, reason, productName)) {
-                        qDebug() << "Warning: Failed to save write-off record to database";
-                        // Don't show warning - not critical
-                    }
-                }
-            } catch (const std::exception& e) {
-                qDebug() << "Error saving write-off record:" << e.what();
-                // Don't show error - not critical, continue with save
-            } catch (...) {
-                qDebug() << "Unknown error saving write-off record";
-                // Don't show error - not critical, continue with save
             }
             
             // Save to file first (critical operation)
@@ -1138,36 +1109,23 @@ QWidget* MainWindow::createInventorySection() {
             return;
         }
         
-        int itemsUpdated = 0;
-        int itemsAdded = 0;
-        int itemsWrittenOff = 0;
+        InventoryAdjustmentService::Result result;
         
         // Save inventory changes
         for (int i = 0; i < inventoryModel->rowCount(); ++i) {
             int id = inventoryModel->item(i, 0)->text().toInt();
             int currentQty = inventoryModel->item(i, 3)->text().toInt();
             int actualQty = inventoryModel->item(i, 4)->text().toInt();
-            int difference = actualQty - currentQty;
-            
-            if (difference == 0) continue;
-            
+
             try {
-                auto product = inventoryManager->getProduct(id);
-                if (product) {
-                    if (difference > 0) {
-                        // Add stock
-                        inventoryManager->addStock(id, difference);
-                        // считаем добавленные единицы товара
-                        itemsAdded += difference;
-                    } else {
-                        // Write off stock
-                        int writeOffQty = -difference;
-                        inventoryManager->writeOffProduct(id, writeOffQty, "Inventory adjustment");
-                        // считаем реально списанное количество
-                        itemsWrittenOff += writeOffQty;
-                    }
-                    itemsUpdated++;
-                }
+                InventoryAdjustmentService::applyAdjustment(
+                    *inventoryManager,
+                    dbManager,
+                    id,
+                    currentQty,
+                    actualQty,
+                    result
+                );
             } catch (const ProductException& e) {
                 QMessageBox::warning(this, "Error", 
                     QString("Failed to update product ID %1: %2")
@@ -1179,7 +1137,7 @@ QWidget* MainWindow::createInventorySection() {
             }
         }
         
-        if (itemsUpdated > 0) {
+        if (result.itemsUpdated > 0) {
             // Save to file
             FileManager::saveToBinary(*inventoryManager, dataFilePath.toStdString());
             
@@ -1191,11 +1149,11 @@ QWidget* MainWindow::createInventorySection() {
             QMessageBox::information(this, "Success", 
                 QString("Inventory saved successfully!\n"
                        "Items updated: %1\n"
-                       "Items added: %2\n"
-                       "Items written off: %3")
-                .arg(itemsUpdated)
-                .arg(itemsAdded)
-                .arg(itemsWrittenOff));
+                       "Items added (units): %2\n"
+                       "Items written off (units): %3")
+                .arg(result.itemsUpdated)
+                .arg(result.quantityAdded)
+                .arg(result.quantityWrittenOff));
             
             // Refresh the inventory table to show updated current quantities
             auto products = inventoryManager->getAllProducts();

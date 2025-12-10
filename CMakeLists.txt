@@ -35,12 +35,21 @@ set(ENTITY_HEADERS
 set(SERVICE_SOURCES
     src/services/InventoryService.cpp
     src/services/WriteOffCalculator.cpp
+    src/services/WriteOffService.cpp
+    src/services/InventoryAdjustmentService.cpp
+    src/services/ProductFilterService.cpp
+    src/services/OrderService.cpp
 )
 
 set(SERVICE_HEADERS
     include/services/InventoryService.h
     include/services/WriteOffCalculator.h
+    include/services/WriteOffService.h
+     include/services/InventoryAdjustmentService.h
+    include/services/ProductValidator.h
     include/services/DiscountCalculator.h
+    include/services/ProductFilterService.h
+    include/services/OrderService.h
 )
 
 # Managers

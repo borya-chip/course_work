@@ -97,19 +97,19 @@ void ReportDialog::generateWriteOffReport() {
     auto writeOffHistory = inventoryManager.getWriteOffHistory();
     report += QString("Total Write-offs: %1\n\n").arg(writeOffHistory.size());
     
-    double totalValue = 0.0;
+    // Используем WriteOffCalculator для расчёта значений
     for (const auto& product : writeOffHistory) {
         if (product) {
             report += QString("ID: %1\n").arg(product->getId());
             report += QString("Product: %1\n").arg(QString::fromStdString(product->getName()));
             report += QString("Quantity: %1\n").arg(product->getQuantity());
-            double value = product->calculateTotalValue();
+            double value = WriteOffCalculator::calculateWriteOffValue(*product, product->getQuantity());
             report += QString("Value: $%1\n").arg(QString::number(value, 'f', 2));
             report += "---\n\n";
-            totalValue += value;
         }
     }
-    
+
+    double totalValue = WriteOffCalculator::calculateTotalWriteOffValue(writeOffHistory);
     report += QString("Total Write-off Value: $%1\n")
               .arg(QString::number(totalValue, 'f', 2));
     

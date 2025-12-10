@@ -93,7 +93,7 @@ Product ProductDialog::getProduct() const {
 }
 
 void ProductDialog::validateInput() {
-    // Всегда проверяем ID
+    // Всегда проверяем ID на допустимость (диапазон); уникальность проверяется на уровне MainWindow
     if (idSpinBox->value() <= 0) {
         QMessageBox::warning(this, "Validation Error", "ID must be greater than 0.");
         return;

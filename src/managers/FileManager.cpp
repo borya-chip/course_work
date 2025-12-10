@@ -2,6 +2,7 @@
 #include "managers/FileManager.h"
 #include "entities/Product.h"
 #include "services/InventoryService.h"
+#include "services/WriteOffCalculator.h"
 #include <QFile>
 #include <QDataStream>
 #include <QStandardPaths>
@@ -170,19 +171,19 @@ bool FileManager::exportWriteOffHistoryToText(const InventoryService& inventory,
         auto writeOffHistory = inventory.getWriteOffHistory();
         file << "Total Write-offs: " << writeOffHistory.size() << "\n\n";
         
-        double totalValue = 0.0;
         for (const auto& product : writeOffHistory) {
             if (product) {
+                double value = WriteOffCalculator::calculateWriteOffValue(*product, product->getQuantity());
                 file << "ID: " << product->getId() << "\n";
                 file << "Name: " << product->getName() << "\n";
                 file << "Quantity: " << product->getQuantity() << "\n";
                 file << "Value: $" << std::fixed << std::setprecision(2) 
-                     << product->calculateTotalValue() << "\n";
+                     << value << "\n";
                 file << "---\n\n";
-                totalValue += product->calculateTotalValue();
             }
         }
-        
+
+        double totalValue = WriteOffCalculator::calculateTotalWriteOffValue(writeOffHistory);
         file << "Total Write-off Value: $" << std::fixed << std::setprecision(2) << totalValue << "\n";
         file.close();
         return true;
