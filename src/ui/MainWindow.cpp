@@ -81,7 +81,6 @@ MainWindow::MainWindow(QWidget* parent)
     
     writeOffsReportTextEdit = nullptr;
     setupUI();
-    connectSignals();
     productModel->refresh();
 }
 
@@ -317,6 +316,9 @@ QWidget* MainWindow::createWarehouseSection() {
     // Table
     setupTable();
     sectionLayout->addWidget(tableView);
+
+    // Подключаем сигналы к только что созданным элементам управления
+    connectSignals();
     
     return sectionWidget;
 }
