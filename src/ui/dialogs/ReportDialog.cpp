@@ -1,7 +1,6 @@
 #include "ui/dialogs/ReportDialog.h"
 #include "managers/FileManager.h"
 #include "services/WriteOffCalculator.h"
-#include "managers/DatabaseManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFileDialog>
@@ -94,21 +93,20 @@ void ReportDialog::generateWriteOffReport() {
     QString report;
     report += "=== WRITE-OFF HISTORY REPORT ===\n\n";
     
-    // Use DatabaseManager to get write-off history from database
-    auto dbManager = DatabaseManager::getInstance();
-    auto writeOffHistory = dbManager->getWriteOffHistory();
+    // Используем InventoryService для получения истории списаний из памяти
+    auto writeOffHistory = inventoryManager.getWriteOffHistory();
     report += QString("Total Write-offs: %1\n\n").arg(writeOffHistory.size());
     
     double totalValue = 0.0;
-    for (int i = 0; i < writeOffHistory.size(); ++i) {
-        const auto& record = writeOffHistory[i];
-        if (record.size() >= 5) {
-            report += QString("Record #%1\n").arg(record[0]); // ID
-            report += QString("Product: %1\n").arg(record[1]); // Product Name
-            report += QString("Quantity: %1\n").arg(record[2]); // Quantity
-            report += QString("Value: $%1\n").arg(record[3]); // Value
+    for (const auto& product : writeOffHistory) {
+        if (product) {
+            report += QString("ID: %1\n").arg(product->getId());
+            report += QString("Product: %1\n").arg(QString::fromStdString(product->getName()));
+            report += QString("Quantity: %1\n").arg(product->getQuantity());
+            double value = product->calculateTotalValue();
+            report += QString("Value: $%1\n").arg(QString::number(value, 'f', 2));
             report += "---\n\n";
-            totalValue += record[3].toDouble();
+            totalValue += value;
         }
     }
     

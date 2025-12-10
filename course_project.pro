@@ -1,7 +1,7 @@
 QT += core widgets charts
 
 CONFIG += c++17
-TARGET = ProductCalculationSystem
+TARGET = ProductCalculationSystems
 TEMPLATE = app
 
 SOURCES += \

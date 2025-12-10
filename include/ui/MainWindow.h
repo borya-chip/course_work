@@ -34,6 +34,8 @@ class QLabel;
 class QTreeWidgetItem;
 QT_END_NAMESPACE
 
+class QTextEdit;
+
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
@@ -78,6 +80,7 @@ private:
     QWidget* createOrdersSection();
     QWidget* createInventorySection();
     QWidget* createReportsSection();
+    QString updateWriteOffsReport();
     double calculateTotalSales();
     QMap<QString, double> getCategorySalesData();
     QList<QPair<QString, double>> getTopCompaniesData(int topCount);
@@ -103,8 +106,8 @@ private:
     InventoryService* inventoryManager;
     DatabaseManager* dbManager;
     QString dataFilePath;
+    QTextEdit* writeOffsReportTextEdit;
     
     // Navigation slots
     void onSidebarItemClicked(QTreeWidgetItem* item, int column);
 };
-

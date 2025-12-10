@@ -79,6 +79,7 @@ MainWindow::MainWindow(QWidget* parent)
         Product::setNextId(maxId);
     }
     
+    writeOffsReportTextEdit = nullptr;
     setupUI();
     connectSignals();
     productModel->refresh();
@@ -87,6 +88,38 @@ MainWindow::MainWindow(QWidget* parent)
 MainWindow::~MainWindow() {
     FileManager::saveToBinary(*inventoryManager, dataFilePath.toStdString());
     delete inventoryManager;
+}
+
+QString MainWindow::updateWriteOffsReport() {
+    if (!inventoryManager) {
+        return QString();
+    }
+
+    QString writeOffsText = "=== WRITE-OFFS REPORT ===\n\n";
+    auto writeOffHistory = inventoryManager->getWriteOffHistory();
+    writeOffsText += QString("Total Write-offs: %1\n\n").arg(writeOffHistory.size());
+
+    double totalValue = 0.0;
+    for (const auto& product : writeOffHistory) {
+        if (product) {
+            writeOffsText += QString("ID: %1\n").arg(product->getId());
+            writeOffsText += QString("Product: %1\n").arg(QString::fromStdString(product->getName()));
+            writeOffsText += QString("Quantity: %1\n").arg(product->getQuantity());
+            double value = product->calculateTotalValue();
+            writeOffsText += QString("Value: $%1\n").arg(QString::number(value, 'f', 2));
+            writeOffsText += "---\n\n";
+            totalValue += value;
+        }
+    }
+
+    writeOffsText += QString("Total Write-off Value: $%1\n").arg(QString::number(totalValue, 'f', 2));
+
+    // Если текстовый виджет существует (раздел отчётов открыт) — обновим его,
+    // иначе просто вернём текст, чтобы можно было, например, экспортировать в файл.
+    if (writeOffsReportTextEdit) {
+        writeOffsReportTextEdit->setPlainText(writeOffsText);
+    }
+    return writeOffsText;
 }
 
 void MainWindow::setupUI() {
@@ -188,6 +221,9 @@ void MainWindow::onSidebarItemClicked(QTreeWidgetItem* item, int column) {
         delete child->widget();
         delete child;
     }
+    // Любые виджеты отчётов (включая QTextEdit отчёта списаний) сейчас уничтожены,
+    // поэтому сбросим указатель, чтобы не обращаться к висячему объекту.
+    writeOffsReportTextEdit = nullptr;
     
     if (action == "warehouse") {
         contentWidget->layout()->addWidget(createWarehouseSection());
@@ -813,6 +849,8 @@ void MainWindow::writeOffProductByRow(int row) {
                     // Force UI update
                     QApplication::processEvents();
                 }
+                // Update write-offs report if it is currently available
+                updateWriteOffsReport();
             } catch (const std::exception& e) {
                 qDebug() << "Error refreshing model:" << e.what();
                 // Continue - model refresh error is not critical, but try to show success message
@@ -1273,38 +1311,14 @@ QWidget* MainWindow::createReportsSection() {
     writeOffsTitleLayout->addWidget(exportWriteOffsBtn);
     writeOffsLayout->addLayout(writeOffsTitleLayout);
     
-    QTextEdit* writeOffsTextEdit = new QTextEdit(writeOffsPage);
-    writeOffsTextEdit->setReadOnly(true);
-    writeOffsTextEdit->setFont(QFont("Courier", 10));
-    
-    // Function to update write-offs report
-    auto updateWriteOffsReport = [writeOffsTextEdit, this]() {
-        QString writeOffsText = "=== WRITE-OFFS REPORT ===\n\n";
-        auto writeOffHistory = this->dbManager->getWriteOffHistory();
-        writeOffsText += QString("Total Write-offs: %1\n\n").arg(writeOffHistory.size());
-        
-        double totalValue = 0.0;
-        for (int i = 0; i < writeOffHistory.size(); ++i) {
-            const auto& record = writeOffHistory[i];
-            if (record.size() >= 5) {
-                writeOffsText += QString("Record #%1\n").arg(record[0]); // ID
-                writeOffsText += QString("Product: %1\n").arg(record[1]); // Product Name
-                writeOffsText += QString("Quantity: %1\n").arg(record[2]); // Quantity
-                writeOffsText += QString("Value: $%1\n").arg(record[3]); // Value
-                writeOffsText += "---\n\n";
-                totalValue += record[3].toDouble();
-            }
-        }
-        writeOffsText += QString("Total Write-off Value: $%1\n").arg(totalValue, 0, 'f', 2);
-        
-        writeOffsTextEdit->setPlainText(writeOffsText);
-        return writeOffsText;
-    };
+    writeOffsReportTextEdit = new QTextEdit(writeOffsPage);
+    writeOffsReportTextEdit->setReadOnly(true);
+    writeOffsReportTextEdit->setFont(QFont("Courier", 10));
     
     // Generate initial report
     QString writeOffsText = updateWriteOffsReport();
     
-    connect(exportWriteOffsBtn, &QPushButton::clicked, this, [updateWriteOffsReport, this]() {
+    connect(exportWriteOffsBtn, &QPushButton::clicked, this, [this]() {
         QString writeOffsText = updateWriteOffsReport();
         QString fileName = QFileDialog::getSaveFileName(this, "Export Write-offs Report", "", "Text Files (*.txt);;All Files (*)");
         if (!fileName.isEmpty()) {
@@ -1320,7 +1334,7 @@ QWidget* MainWindow::createReportsSection() {
         }
     });
     
-    writeOffsLayout->addWidget(writeOffsTextEdit);
+    writeOffsLayout->addWidget(writeOffsReportTextEdit);
     reportsStack->addWidget(writeOffsPage);
     
     // Current inventory report page
@@ -1609,7 +1623,7 @@ QWidget* MainWindow::createReportsSection() {
     contentLayout->addWidget(reportsStack);
     
     // Connect buttons to switch pages and refresh report
-    connect(writeOffsBtn, &QPushButton::clicked, [reportsStack, updateWriteOffsReport]() { 
+    connect(writeOffsBtn, &QPushButton::clicked, this, [this, reportsStack]() { 
         reportsStack->setCurrentIndex(0);
         // Refresh report when switching to write-offs page
         updateWriteOffsReport();
